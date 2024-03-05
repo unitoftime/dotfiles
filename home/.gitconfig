@@ -1,0 +1,7 @@
+[user]
+   name = Jacob
+   email = 2606873+unitoftime@users.noreply.github.com
+[url "git@github.com:"]
+   insteadof = https://github.com
+[init]
+   defaultBranch = master
