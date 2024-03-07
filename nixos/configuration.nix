@@ -85,7 +85,6 @@
     extraGroups = [ "networkmanager" "wheel" "docker" ];
     packages = with pkgs; [
       firefox
-    #  thunderbird
     ];
   };
 
@@ -111,14 +110,19 @@
 	pkgs.libresprite
 	pkgs.go
 	pkgs.imagemagick
+	pkg-config
 	pkgs.glfw
-	pkgs.mesa
-	pkgs.xorg.libX11
+	mesa
+	xorg.libX11
 	xorg.libX11.dev
+	xorg.libXft
+	xorg.libXinerama
+	xorg.xorgproto
 	libGL
     	libGL.dev
     	libglvnd
     	libglvnd.dev
+    	alsa-lib
     	gcc
     	gdb
     	gparted
