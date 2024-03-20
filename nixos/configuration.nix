@@ -88,44 +88,62 @@
     ];
   };
 
+  services.logind.extraConfig = "RuntimeDirectorySize=16G";
+
   hardware.opengl.enable = true;
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
+  nixpkgs.config.permittedInsecurePackages = [
+     "electron-25.9.0" # Required for obsidian
+  ];
+
+
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-  #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-  #  wget
-	gnumake
-	pkgs.emacs29
-	pkgs.gnome.gnome-tweaks
-	tmux
-	neofetch
-	pkgs.chromium
-	git
-	pkgs.stow
-	pkgs.aseprite
-	pkgs.libresprite
-	pkgs.go
-	pkgs.imagemagick
-	pkg-config
-	pkgs.glfw
-	mesa
-	xorg.libX11
-	xorg.libX11.dev
-	xorg.libXft
-	xorg.libXinerama
-	xorg.xorgproto
-	libGL
-    	libGL.dev
-    	libglvnd
-    	libglvnd.dev
-    	alsa-lib
-    	gcc
-    	gdb
-    	gparted
+     git
+     wget
+     curl
+     neofetch
+     htop
+     vim
+     gnumake
+     tmux
+     emacs29
+     chromium
+     gnome.gnome-tweaks
+     gnomeExtensions.workspace-switch-wraparound
+
+     stow
+     aseprite
+     libresprite
+     obs-studio
+     lsp-plugins
+     obsidian
+     go
+     gotools
+     gopls
+     graphviz
+     imagemagick
+     pkg-config
+
+     pkgs.glfw
+     mesa
+     xorg.libX11
+     xorg.libX11.dev
+     xorg.libXft
+     xorg.libXinerama
+     xorg.xorgproto
+     libGL
+     libGL.dev
+     libglvnd
+     libglvnd.dev
+     alsa-lib
+     gcc
+     gdb
+     gparted
   ];
 
 virtualisation.docker.enable = true;

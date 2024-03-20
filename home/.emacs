@@ -70,11 +70,12 @@
 ;; --- Theme ---
 ;(require 'catppuccin-theme)
 ;(load-theme 'catppuccin :no-confirm)
-(load-theme 'zenburn t)
+;(load-theme 'zenburn t)
+(load-theme 'tango-dark t)
 
 ;; ------------------ Config -------------------------
 (setq whitespace-line-column 1000)
-(setq whitespace-style '(face trailing tabs lines-tail))
+(setq whitespace-style '(face trailing lines-tail))
 ;;(setq whitespace-style '(face lines-tail))
 (setq whitespace-line "font-lock-warning-face")
 (global-whitespace-mode t)
@@ -217,6 +218,18 @@
 (global-set-key "\M-." 'lsp-find-definition)
 (global-set-key "\M-," 'xref-go-back)
 (global-set-key "\M-m" 'lsp-find-references)
+
+
+;; Custom commands
+(defun gid (CountX)
+  "Insert CountX random hexadecimal digits.
+CountX default to 5.
+Call `universal-argument' and type a number, then, call this command, for different count.
+URL `http://xahlee.info/emacs/emacs/elisp_insert_random_number_string.html'
+Version: 2017-08-03 2023-01-13"
+  (interactive "P")
+  (let ((xn (if (numberp CountX) (abs CountX) 16 )))
+    (insert (concat "0x" (format  (concat "%0" (number-to-string xn) "x" ) (random (expt 16 xn)))))))
 
 ;; ;; ----------------- Graphical ----------------------
 
