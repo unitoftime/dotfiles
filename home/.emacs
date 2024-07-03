@@ -203,6 +203,14 @@
 ;; Golang LSP
 (require 'lsp-mode)
 (add-hook 'go-mode-hook #'lsp-deferred)
+(setq lsp-go-analyses
+      '((composites . :json-false)))
+
+(lsp-register-custom-settings
+ '(("gopls.completeUnimported" t t)
+   ("gopls.staticcheck" t t)))
+
+
 
 ;; Company Mode
 (add-hook 'after-init-hook 'global-company-mode)

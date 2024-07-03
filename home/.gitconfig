@@ -5,3 +5,5 @@
    insteadOf = https://github.com/
 [init]
    defaultBranch = master
+[http]
+	cookiefile = /home/jacob/.gitcookies
