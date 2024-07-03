@@ -16,3 +16,9 @@ deploy-dconf:
 	dconf load / < dconf-settings.ini
 get-dconf:
 	dconf dump / > dconf-settings.ini
+
+# Install yay
+# pacman -S --needed git base-devel
+# git clone https://aur.archlinux.org/yay-bin.git
+# cd yay-bin
+# makepkg -si
