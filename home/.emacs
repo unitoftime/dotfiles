@@ -114,6 +114,7 @@
 
 ;; Helm Mode Bindings
 (helm-mode 1)
+(setq helm-move-to-line-cycle-in-source nil) ;; Lets you C-n through sections
 (global-set-key "\C-x\ \C-r" 'helm-recentf)
 ;(global-set-key "\C-x\C-b" 'helm-locate)
 ;(global-set-key "\C-x\C-b" 'helm-mini)
@@ -190,7 +191,9 @@
 (add-to-list 'auto-mode-alist '("\\.tgo\\'" . go-mode))
 
 ;; Remove foreground from highlights, so that highlight bars show syntax highlighting
-;(set-face-foreground 'highlight nil)
+(set-face-foreground 'highlight nil)
+;(set-face-background 'highlight nil)
+(set-face-attribute 'highlight nil :background "#444")
 
 ;; Insert Date
 ;(defun blog-date () (interactive)
@@ -209,11 +212,32 @@
 (lsp-register-custom-settings
  '(("gopls.completeUnimported" t t)
    ("gopls.staticcheck" t t)))
+(setq lsp-signature-auto-activate nil)
 
 
-
-;; Company Mode
+;; Company Mode: https://company-mode.github.io/manual/Customization.html
 (add-hook 'after-init-hook 'global-company-mode)
+
+;; ;; 0.3 is default, 0.0 is react immediately
+;; (setq company-idle-delay
+;;       (lambda () (if (company-in-string-or-comment) nil 0.0)))
+(setq company-idle-delay 1
+      company-tooltip-idle-delay 1
+      company-require-match nil
+      company-frontends
+      '(company-pseudo-tooltip-unless-just-one-frontend-with-delay
+        company-preview-frontend
+        company-echo-metadata-frontend)
+      company-backends '(company-capf))
+
+;; (global-set-key (kbd "<tab>")
+;;                 (lambda ()
+;;                   (interactive)
+;;                   (let ((company-tooltip-idle-delay 0.0))
+;;                     (company-complete)
+;;                     (and company-candidates
+;;                          (company-call-frontends 'post-command)))))
+
 
 ;; Set up before-save hooks to format buffer and add/delete imports.
 ;; Make sure you don't have other gofmt/goimports hooks enabled.
@@ -238,6 +262,8 @@ Version: 2017-08-03 2023-01-13"
   (interactive "P")
   (let ((xn (if (numberp CountX) (abs CountX) 16 )))
     (insert (concat "0x" (format  (concat "%0" (number-to-string xn) "x" ) (random (expt 16 xn)))))))
+
+(define-key global-map (kbd "C-c i") 'gid)
 
 ;; ;; ----------------- Graphical ----------------------
 
