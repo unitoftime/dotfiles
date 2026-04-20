@@ -23,6 +23,11 @@
 (global-set-key "\M-[" 'previous-multiframe-window)
 (global-set-key "\M-]" 'next-multiframe-window)
 
+(with-eval-after-load 'vterm
+  ;; Brute-force map the keys directly inside vterm
+  (define-key vterm-mode-map "\M-[" 'previous-multiframe-window)
+  (define-key vterm-mode-map "\M-]" 'next-multiframe-window))
+
 ;; --------------------------------------------------------------------------------
 ;; Automatic package loading
 ;; --------------------------------------------------------------------------------
@@ -60,6 +65,7 @@
         catppuccin-theme
 	zenburn-theme
         company
+        ;; projectile
 	))
 
 ;; Iterate on packages and install missing ones
@@ -104,6 +110,22 @@
 ;;------------------------------------------------------------------------------
 ;; Package Configs
 ;;------------------------------------------------------------------------------
+(use-package ag
+  :ensure t)
+
+(use-package vterm
+  :ensure t)
+;; Force standard terminal capabilities so CLIs redraw instead of append
+(setq vterm-environment
+      '("TERM=xterm-256color"
+        "COLORTERM=truecolor"))
+
+
+(defun my-web-mode-hook ()
+  (local-set-key (kbd "C-c C-c") 'web-mode-comment-or-uncomment))
+
+(add-hook 'web-mode-hook 'my-web-mode-hook)
+
 ;; display a list of recent files
 (require 'recentf)
 (recentf-mode 1)
@@ -119,19 +141,80 @@
 ;(global-set-key "\C-x\C-b" 'helm-locate)
 ;(global-set-key "\C-x\C-b" 'helm-mini)
 (global-set-key "\C-x\C-j" 'helm-mini)
+;(setq helm-xref-candidate-formatting-function 'helm-xref-format-candidate-full-path)
+(setq helm-xref-candidate-formatting-function 'helm-xref-format-candidate-long)
 
 ;; Magit bindings
 (global-set-key "\C-x\ g" 'magit-status)
+
+
+;; markdown mode
+(defun my/markdown-smart-tab ()
+  "If on a list item, indent (demote) it. Otherwise, run normal tab behavior."
+  (interactive)
+  (if (markdown-list-item-at-point-p)
+      (markdown-demote-list-item)
+    (markdown-cycle))) ;; Or use (indent-for-tab-command) if you hate folding
+
+(defun my/markdown-smart-backtab ()
+  "If on a list item, outdent (promote) it. Otherwise, cycle global visibility."
+  (interactive)
+  (if (markdown-list-item-at-point-p)
+      (markdown-promote-list-item)
+    (markdown-shifttab)))
+
+(with-eval-after-load 'markdown-mode
+  (define-key markdown-mode-map (kbd "S-TAB") nil)
+  (define-key markdown-mode-map (kbd "TAB") nil)
+  (define-key markdown-mode-map (kbd "<C-return>") 'markdown-insert-list-item)
+  (define-key markdown-mode-map (kbd "<S-return>") 'markdown-insert-list-item)
+
+  (define-key markdown-mode-map (kbd "<tab>") 'my/markdown-smart-tab)
+  (define-key markdown-mode-map (kbd "<backtab>") 'my/markdown-smart-backtab)
+)
+
+(defface my/markdown-dim-checked-face
+  '((t (:foreground "#808080" :inherit shadow)))
+  "Face for completed markdown tasks to make them less visible.")
+
+(with-eval-after-load 'markdown-mode
+  (font-lock-add-keywords 'markdown-mode
+   '(("^\\s-*[-*+] \\[[xX]\\].*$"                ; 1. Match the checked line (Parent)
+      (0 'my/markdown-dim-checked-face t)        ; 2. Dim the parent
+      ("\\(?:\n[ \t]*[^ \t-*+\n].*\\)+"          ; 3. Match following lines that are NOT bullets
+       nil nil                                   ; (pre/post-match forms - leave empty)
+       (0 'my/markdown-dim-checked-face t))))    ; 4. Dim those lines too
+   'append))
+
+
+
+;; (require 'projectile)
+;; ;; Recommended keymap prefix on macOS
+;; ;; (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+;; ;; Recommended keymap prefix on Windows/Linux
+;; (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+;; (projectile-mode +1)
+
 
 ;; ;; Dumb Jump Bindings
 ;; (global-set-key "\M-." 'godef-jump)
 ;; (global-set-key "\M-," 'dumb-jump-back)
 
 ;; Recompile binding
-(global-set-key "\C-c\ n" 'compile)
+(setq compile-command "make")
+
+;; unbind html mode from using C-c C-c
+(with-eval-after-load 'mhtml-mode
+  (define-key mhtml-mode-map (kbd "C-c C-c") nil)) ;; unbind
+
+;; (global-set-key "\C-c\ n" 'compile)
+(global-set-key "\C-c\ n" 'project-compile)
 (global-set-key "\C-c\ m" 'recompile)
 (setq compilation-auto-jump-to-first-error nil)
 (setq compilation-scroll-output 1) ;;Follow-mode
+
+(global-set-key "\C-c\ r" 'replace-string)
+(global-set-key "\C-c\ s" 'helm-do-grep-ag)
 
 ;; Aliases
 (defalias 'rs 'replace-string)
@@ -190,6 +273,7 @@
 (add-to-list 'auto-mode-alist '("\\.cppm\\'" . c++-mode))
 (add-to-list 'auto-mode-alist '("\\.tgo\\'" . go-mode))
 
+
 ;; Remove foreground from highlights, so that highlight bars show syntax highlighting
 (set-face-foreground 'highlight nil)
 ;(set-face-background 'highlight nil)
@@ -206,8 +290,13 @@
 ;; Golang LSP
 (require 'lsp-mode)
 (add-hook 'go-mode-hook #'lsp-deferred)
+;; https://go.googlesource.com/tools/+/refs/heads/master/gopls/doc/analyzers.md?autodive=0%2F%2F%2F%2F
 (setq lsp-go-analyses
-      '((composites . :json-false)))
+      '((composites . :json-false)
+        (ST1000 . :json-false)
+        (ST1020 . :json-false)
+        (ST1021 . :json-false)
+        (ST1022 . :json-false)))
 
 (lsp-register-custom-settings
  '(("gopls.completeUnimported" t t)
@@ -265,289 +354,184 @@ Version: 2017-08-03 2023-01-13"
 
 (define-key global-map (kbd "C-c i") 'gid)
 
-;; ;; ----------------- Graphical ----------------------
+(load-file "/home/jacob/git/language/oll-mode.el")
 
-;; (require 'exec-path-from-shell)
-;; (exec-path-from-shell-copy-env "SSH_AGENT_PID")
-;; (exec-path-from-shell-copy-env "SSH_AUTH_SOCK")
-;; (keychain-refresh-environment)
+;; Manage Layouts
+(dotimes (i 5)
+  (let* ((n (+ i 1))                             ; Slots 1-5
+         (reg (string-to-char (number-to-string n))) ; Char code
+         (save-func-name (intern (format "my/save-layout-%d" n)))
+         (load-func-name (intern (format "my/load-layout-%d" n))))
 
+    ;; 1. SAVE Function (Unchanged - saves the splits and files)
+    (defalias save-func-name
+      `(lambda ()
+         (interactive)
+         (window-configuration-to-register ,reg)
+         (message "Layout saved to register %d" ,n)))
 
-;; ;; https://stackoverflow.com/questions/12224909/is-there-a-way-to-get-my-emacs-to-recognize-my-bash-aliases-and-custom-functions/12229404#12229404
-;; (setq shell-file-name "bash")
-;; (setq shell-command-switch "-ic")
+    ;; 2. LOAD Function (The Fix)
+    (defalias load-func-name
+      `(lambda ()
+         (interactive)
+         (if (get-register ,reg)
+             (let ((buffer-points (make-hash-table :test 'eq)))
+               
+               ;; Step A: Save current "real" positions of ALL buffers
+               (dolist (buf (buffer-list))
+                 (with-current-buffer buf
+                   (puthash buf (point) buffer-points)))
+               
+               ;; Step B: Restore the layout (which wrongly resets cursors)
+               (jump-to-register ,reg)
+               
+               ;; Step C: Fix the cursors
+               ;; We walk through the newly restored windows and force them
+               ;; to go to the "real" position we saved in Step A.
+               (dolist (win (window-list))
+                 (let* ((buf (window-buffer win))
+                        (real-point (gethash buf buffer-points)))
+                   (when real-point
+                     (set-window-point win real-point)))))
+             
+           (message "Register %d is empty." ,n))))
 
-;; ;; turn off the tool bar
+    ;; 3. Bind Keys
+    (global-set-key (kbd (format "C-c %d" n)) load-func-name)
+    (global-set-key (kbd (format "C-c w %d" n)) save-func-name)))
 
-;; ;; Added by Package.el.  This must come before configurations of
-;; ;; installed packages.  Don't delete this line.  If you don't want it,
-;; ;; just comment it out by adding a semicolon to the start of the line.
-;; ;; You may delete these explanatory comments.
-;; (package-initialize)
+;; (dotimes (i 5)
+;;   (let* ((n (+ i 1))                             ; Slots 1-5
+;;          (reg (string-to-char (number-to-string n))) ; Char code for register
+;;          (save-func-name (intern (format "my/save-layout-%d" n)))
+;;          (load-func-name (intern (format "my/load-layout-%d" n))))
 
-;; (tool-bar-mode -1)
-;; ;; turn off help screen
-;; (setq inhibit-startup-screen t)
-;; ;;turn on line numbers
-;; (global-linum-mode t)
+;;     ;; 1. Define SAVE function
+;;     ;; Notice the backtick ` before (lambda
+;;     (defalias save-func-name
+;;       `(lambda ()
+;;          (interactive)
+;;          (window-configuration-to-register ,reg) ; ,reg injects the value
+;;          (message "Layout saved to register %d" ,n)))
 
-;; ;; whitespace-mode stuff
-;; (require 'whitespace)
-;; (setq whitespace-line-column 1000)
-;; (setq whitespace-style '(face trailing tabs lines-tail))
-;; ;;(setq whitespace-style '(face lines-tail))
-;; (setq whitespace-line "font-lock-warning-face")
-;; (global-whitespace-mode t)
+;;     ;; 2. Define LOAD function
+;;     ;; Notice the backtick ` before (lambda
+;;     (defalias load-func-name
+;;       `(lambda ()
+;;          (interactive)
+;;          (if (get-register ,reg)
+;;              (jump-to-register ,reg)
+;;            (message "Register %d is empty." ,n))))
 
-;; ;; ------------------ Bindings ----------------------
-
-;; ;; Setup Path - https://www.emacswiki.org/emacs/ExecPath
-;; (setenv "PATH" (concat (getenv "PATH") ":/home/jacob/go/bin/"))
-;; (setq exec-path (append exec-path '("/home/jacob/go/bin/")))
-
-
-;; ;; re-bind buffer-list to buffer-menu
-;; ;(global-set-key "\C-x\C-b" 'ibuffer)
-
-;; ;; make it easy to change between buffers
-;; (global-set-key "\M-[" 'previous-multiframe-window)
-;; (global-set-key "\M-]" 'next-multiframe-window)
-
-;; (define-key global-map (kbd "C-j") 'ace-jump-mode)
-;; (define-key global-map (kbd "C-c C-c") 'comment-region)
-
-;; (default-text-scale-mode)
-;; (define-key global-map (kbd "C-c ]") (lambda () (interactive) (default-text-scale-increment 40)))
-;; (define-key global-map (kbd "C-c [") (lambda () (interactive) (default-text-scale-reset)))
-
-;; ;;------------------------------------------------------------------------------
-;; ;; --- Experimental ergonomics ---
-;; ;;------------------------------------------------------------------------------
-
-;; ;; Rebind C-u to do C-x
-;; ;; (keyboard-translate ?\C-u ?\C-x)
-
-;; ;; Kind of god mode but just for browsing
-;; ;; (defhydra hydra-browse (:color blue)
-;; ;;   "Browse"
-;; ;;   ("n" next-line)
-;; ;;   ("p" previous-line)
-;; ;;   ("f" forward-char)
-;; ;;   ("b" backward-char)
-
-;; ;;   ("v" scroll-up-command)
-;; ;;   ("M-v" scroll-down-command)
-;; ;;   ("l" recenter-top-bottom)
-
-;; ;;   ("M-[" previous-multiframe-window)
-;; ;;   ("M-]" next-multiframe-window)
-;; ;;   ("q" nil "quit")
-;; ;;   ("i" nil "quit")
-;; ;;   )
-;; ;; (global-set-key (kbd "C-c r") 'hydra-browse/body)
-
-;; (require 'god-mode)
-;; ;(global-set-key (kbd "<escape>") 'god-mode-all)
-;; ;; Was tab-to-tab-stop
-;; (global-set-key (kbd "M-i") 'god-mode-all)
-
-;; ;(require 'color)
-;; ;; Indicators for god-mode
-;; (require 'hl-line)
-;; ;(defadvice hl-line-mode (after
-;; ;                         dino-advise-hl-line-mode
-;; ;                         activate compile)
-;; ;  (set-face-background hl-line-face "gray13"))
-;; (set-face-background 'hl-line "dim gray")
-;; ;(set-face-background hl-line-face "black")
-;; (set-face-foreground 'highlight nil)
-
-;; (with-eval-after-load 'god-mode
-;;   (define-key god-local-mode-map (kbd ".") 'repeat)
-;;   (define-key god-local-mode-map (kbd "i") 'god-mode-all)
-;;   (global-set-key (kbd "C-x C-1") 'delete-other-windows)
-;;   (global-set-key (kbd "C-x C-2") 'split-window-below)
-;;   (global-set-key (kbd "C-x C-3") 'split-window-right)
-;;   (global-set-key (kbd "C-x C-0") 'delete-window)
-;;   (global-set-key (kbd "C-c C-n") 'compile)
-;;   (global-set-key (kbd "C-c C-m") 'recompile)
-;; ;  (global-set-key "\C-x\ g" 'magit-status)
-;;   ;; (global-set-key (kbd "C-x g") 'magit-status)
-
-;; ;  (add-to-list 'god-exempt-major-modes 'dired-mode)
-
-;;   ;; Update the cursor based on the god mode state
-;;   (defun god-mode-update-cursor ()
-;; ;    (setq cursor-type
-;; ;          (if (or god-local-mode buffer-read-only) 'hollow 'box)))
-;;     (if (or god-local-mode buffer-read-only) (global-hl-line-mode 1) (global-hl-line-mode 0)))
-
-;;   (add-hook 'god-mode-enabled-hook 'god-mode-update-cursor)
-;;   (add-hook 'god-mode-disabled-hook 'god-mode-update-cursor))
-
-;; ;; turn bar red in god mode - grey otherwise
-;; ;; (defun me//god-mode-indicator ()
-;; ;;   (cond (god-local-mode
-;; ;;          (progn
-;; ;;            (set-face-background 'mode-line "red4")
-;; ;;            (set-face-foreground 'mode-line "gray")
-;; ;;            (set-face-background 'mode-line-inactive "gray30")
-;; ;;            (set-face-foreground 'mode-line-inactive "red")))
-;; ;;         (t
-;; ;;          (progn
-;; ;;            (set-face-background 'mode-line-inactive "gray30")
-;; ;;            (set-face-foreground 'mode-line-inactive "gray80")
-;; ;;            (set-face-background 'mode-line "gray75")
-;; ;;            (set-face-foreground 'mode-line "black")))))
-
-;; ;; (add-hook 'god-mode-enabled-hook #'me//god-mode-indicator)
-;; ;; (add-hook 'god-mode-disabled-hook #'me//god-mode-indicator)
+;;     ;; 3. Bind keys
+;;     (global-set-key (kbd (format "C-c %d" n)) load-func-name)
+;;     (global-set-key (kbd (format "C-c w %d" n)) save-func-name)))
 
 
-;; ;; (require 'keyfreq)
-;; ;; (keyfreq-mode 1)
-;; ;; (keyfreq-autosave-mode 1)
+;; ----------------- AI ----------------------
+(global-auto-revert-mode 1)
 
-;; ;;------------------------------------------------------------------------------
-;; ;;------------------------------------------------------------------------------
+(require 'transient)
 
-;; ;; ----------------- Environment --------------------
-;; ;; load emacs 24's package system. Add MELPA repository.
-;; (when (>= emacs-major-version 24)
-;;   (require 'package)
-;;   (add-to-list
-;;    'package-archives
-;;    '("melpa" . "https://melpa.org/packages/")
-;;    ;'("melpa" . "http://stable.melpa.org/packages/") ; many packages won't show if using stable
-;;    ;'("melpa" . "http://melpa.milkbox.net/packages/")
-;;    t))
+;; 1. The Core Engine (Not mapped to a key, just runs quietly)
+(defun my-gemini-vterm-execute (instruction)
+  "Finds an active vterm, formats context, and pastes it directly into the running CLI."
+  (let* ((file-path (buffer-file-name))
+         (filename (if file-path (file-name-nondirectory file-path) ""))
+         (region-text (if (use-region-p)
+                          (buffer-substring-no-properties (region-beginning) (region-end))
+                        ""))
+         
+         ;; 1. Format a clean, human-readable prompt
+         (full-payload (format "Context: I am working in %s.\nInstruction: %s\n\nTarget Snippet:\n%s" 
+                               filename 
+                               instruction 
+                               region-text))
+         
+         ;; 2. Hunt down the first open vterm buffer
+         (vterm-buf (catch 'found
+                      (dolist (b (buffer-list))
+                        (with-current-buffer b
+                          (when (eq major-mode 'vterm-mode)
+                            (throw 'found b))))
+                      nil)))
 
-;; ;; svelte files to use web-mode
-;; (add-to-list 'auto-mode-alist '("\\.svelte\\'" . web-mode))
-;; (setq web-mode-enable-current-element-highlight nil)
+    (if vterm-buf
+        (progn
+          ;; 3. Put the formatted text into the Emacs clipboard
+          (kill-new full-payload)
 
-;; ;;Disable backups and autosaves
-;; (setq make-backup-files nil)
-;; (setq auto-save-default nil)
+          ;; 4. Split window and jump to the vterm buffer
+          (pop-to-buffer vterm-buf)
 
-;; ;; Org mode
-;; (setq org-log-done 'time)
+          ;; 5. Paste securely (triggers bracketed paste)
+          (vterm-yank)
 
-;; ;; display a list of recent files
-;; (require 'recentf)
-;; (recentf-mode 1)
-;; (setq recentf-max-menu-items 32)
-;; (setq recentf-max-saved-items 1024)
-;; (global-set-key "\C-x\ \C-r" 'recentf-open-files)
-;; ;(global-set-key "\C-x\ \C-j" 'recentf-open-files)
+          ;; Wait for the terminal to finish processing the massive paste
+          (sleep-for 0.1)
 
-;; ;; Helm Mode Bindings
-;; (helm-mode 1)
-;; (global-set-key "\C-x\ \C-r" 'helm-recentf)
-;; ;(global-set-key "\C-x\C-b" 'helm-locate)
-;; ;(global-set-key "\C-x\C-b" 'helm-mini)
-;; (global-set-key "\C-x\C-j" 'helm-mini)
+          ;; 6. First Enter: Closes the multi-line paste block
+          (vterm-send-return)
 
-;; ;; Magit bindings
-;; (global-set-key "\C-x\ g" 'magit-status)
+          ;; Tiny breath for the CLI state to update
+          (sleep-for 0.05)
 
-;; ;; Dumb Jump Bindings
-;; (global-set-key "\M-." 'godef-jump)
-;; (global-set-key "\M-," 'dumb-jump-back)
+          ;; 7. Second Enter: Actually sends the prompt to the AI
+          (vterm-send-return))
 
-;; ;; Recompile binding
-;; (global-set-key "\C-c\ n" 'compile)
-;; (global-set-key "\C-c\ m" 'recompile)
-;; (setq compilation-auto-jump-to-first-error nil)
-;; (setq compilation-scroll-output 1) ;;Follow-mode
+      ;; Fallback warning if you forgot to open the terminal
+      (message "No vterm buffer found! Open vterm and start the Gemini CLI first."))))
 
-;; ;; Aliases
-;; (defalias 'rs 'replace-string)
-;; (defalias 'ag 'helm-do-grep-ag)
+;; 2. The Command Definitions
+(defun my-gemini-cmd-tests ()
+  "Ask the agent to generate unit tests."
+  (interactive)
+  (my-gemini-vterm-execute "Write comprehensive unit tests for this code. Focus on edge cases."))
 
-;; ;; default to use only spaces
-;; (setq-default indent-tabs-mode nil)
+(defun my-gemini-cmd-finish ()
+  "Ask the agent to complete the logic."
+  (interactive)
+  (my-gemini-vterm-execute "Finish implementing this function or struct based on the current context and naming patterns."))
 
-;; ;; avoid accidental closing
-;; (defun ask-before-closing ()
-;;   "Ask whether or not to close, and then close if y was pressed"
-;;   (interactive)
-;;   (if (y-or-n-p (format "Are you sure you want to exit Emacs? "))
-;;       (if (< emacs-major-version 22)
-;;           (save-buffers-kill-terminal)
-;;         (save-buffers-kill-emacs))
-;;     (message "Canceled exit")))
+(defun my-gemini-cmd-bugs ()
+  "Ask the agent to audit for memory leaks and edge cases."
+  (interactive)
+  (my-gemini-vterm-execute "Analyze this code for bugs, memory leaks, or unhandled edge cases. Provide the corrected code."))
 
-;; ;(when window-system
-;; (global-set-key (kbd "C-x C-c") 'ask-before-closing);)
+(defun my-gemini-cmd-custom ()
+  "Prompt for a specific, one-off instruction."
+  (interactive)
+  (my-gemini-vterm-execute (read-string "Agent task: ")))
 
-;; ;; omit uninteresting files from dired
-;; (require 'dired-x)
-;; (setq-default dired-omit-files-p t)
-;; (setq dired-omit-files
-;;       (concat dired-omit-files "\\|^\\..+$"))
+;; 3. The Visual Menu (The Magit-style popup)
+(transient-define-prefix my-gemini-menu ()
+  "AI Agent Command Palette"
+  ["Gemini Agent Commands"
+   ("t" "Write Tests" my-gemini-cmd-tests)
+   ("f" "Finish Function" my-gemini-cmd-finish)
+   ("b" "Check for Bugs" my-gemini-cmd-bugs)
+   ("c" "Custom Prompt" my-gemini-cmd-custom)])
 
-;; (put 'erase-buffer 'disabled nil)
-;; (custom-set-variables
-;;  ;; custom-set-variables was added by Custom.
-;;  ;; If you edit it by hand, you could mess it up, so be careful.
-;;  ;; Your init file should contain only one such instance.
-;;  ;; If there is more than one, they won't work right.
-;;  '(ansi-color-faces-vector
-;;    [default default default italic underline success warning error])
-;;  '(custom-enabled-themes (quote (tango-dark)))
-;;  '(package-selected-packages
-;;    (quote
-;;     (god-mode keyfreq hydra ace-jump-mode dumb-jump helm haskell-mode magit go-mode)))
-;;  '(tool-bar-mode nil))
-
-;; ;; (setq gofmt-command "goimports")
-;; ;; ;(add-to-list 'load-path "/home/you/somewhere/emacs/")
-;; ;; (require 'go-mode-load)
-;; ;; (add-hook 'before-save-hook 'gofmt-before-save)
-
-;; ;;indents as 2 spaces
-;; (setq default-tab-width 2)
-;; (add-hook 'go-mode-hook
-;;           (lambda ()
-;;             (setq indent-tabs-mode 1)
-;;             (setq tab-width 2)))
-;; (custom-set-faces
-;;  ;; custom-set-faces was added by Custom.
-;;  ;; If you edit it by hand, you could mess it up, so be careful.
-;;  ;; Your init file should contain only one such instance.
-;;  ;; If there is more than one, they won't work right.
-;;  )
-
-;; (add-to-list 'same-window-buffer-names "*compilation*")
-
-;; (add-to-list 'auto-mode-alist '("\\.cppm\\'" . c++-mode))
-;; (add-to-list 'auto-mode-alist '("\\.tgo\\'" . go-mode))
-
-;; ;; Remove foreground from highlights, so that highlight bars show syntax highlighting
-;; (set-face-foreground 'highlight nil)
-
-;; ;; Insert Date
-;; (defun blog-date () (interactive)
-;;        (insert (shell-command-to-string "echo -n $(date -u +%Y-%m-%dT%H:%M:%S%z)")))
-
-
-;; (global-set-key "\C-x\C-j" 'helm-mini)
-
-;; (setq eglot-ignored-server-capabilites '(:documentHighlightProvider))
-;; (add-hook 'rust-mode-hook 'eglot-ensure)
-
+;; 4. The Trigger Key
+(global-set-key (kbd "C-c g") 'my-gemini-menu)
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(custom-enabled-themes '(tango-dark))
  '(package-selected-packages
-   '(keychain-environment yaml-mode web-mode toml-mode rust-mode nginx-mode magit lsp-mode json-mode helm go-mode exec-path-from-shell ace-jump-mode)))
+   '(ace-jump-mode ag catppuccin-theme company exec-path-from-shell
+                   go-mode gptel helm json-mode keychain-environment
+                   lsp-mode magit nginx-mode projectile rust-mode
+                   toml-mode vterm web-mode yaml-mode zenburn-theme
+                   zig-mode)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
+
+
