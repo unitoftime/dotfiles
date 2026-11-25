@@ -5,9 +5,11 @@
 #   2. Open http://localhost:8384, "Add Remote Device" with the other machine's ID (Actions >
 #      Show ID there) and tick "Auto Accept". On the other machine, accept the new device,
 #      then run `make syncthing` there to share every folder with it.
-#   3. Once ~/dotfiles has arrived, run `make` in it.
+#   3. Once ~/git/dotfiles has arrived (it syncs with the rest of ~/git), run `make` in it.
 # With no other machine: install git and make, add an SSH key to GitHub, clone this repo to
-# ~/dotfiles and run `make`. private/ is not in git, so start it again from scratch.
+# ~/git/dotfiles and run `make`. private/ is not in git, so start it again from scratch.
+#
+# `make all` runs the steps in order; each step also runs on its own (`make stow`).
 
 TED_PKGBUILD := https://raw.githubusercontent.com/unitoftime/ted/master/packaging/arch/PKGBUILD
 TED_BUILD    := $(HOME)/.cache/ted-pkg
@@ -24,26 +26,27 @@ packages:
 	sudo pacman -Sy --needed archlinux-keyring
 	sudo pacman -Su --needed `<./depac.conf`
 
-rust: packages
+rust:
 	rustup default stable
 	rustup update stable
 	rustup component add rust-analyzer
 
-# Links home/ (public) and private/home/ (synced, never pushed) into ~.
+# Links home/ (public) and private/home/ (synced, never pushed) into ~. The target is
+# explicit because stow otherwise links into the repo's parent directory.
 # --no-folding: link files, never whole directories, so apps writing state next to
 # their config (e.g. ~/.config/ted/history) don't write into this repo.
 # -R also drops links to files since removed.
-stow: packages
-	stow --no-folding -R home
+stow:
+	stow -t $(HOME) --no-folding -R home
 	[ ! -d private/home ] || stow -d private -t $(HOME) --no-folding -R home
 
 # Builds the pushed ted outside any synced folder, so build files never sync.
-ted: rust stow
+ted:
 	mkdir -p $(TED_BUILD)
 	curl -fsSL -o $(TED_BUILD)/PKGBUILD $(TED_PKGBUILD)
 	cd $(TED_BUILD) && makepkg -si --needed
 
-syncthing: packages
+syncthing:
 	systemctl --user enable --now syncthing.service
 	./syncthing/setup.sh
 

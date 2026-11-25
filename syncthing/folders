@@ -3,7 +3,6 @@
 # id        path          ignore lists (files in this directory, comma-separated)
 git         ~/git         ignore-code,ignore-git
 workspace   ~/workspace   ignore-code
-dotfiles    ~/dotfiles    ignore-dotfiles
 documents   ~/Documents
 pictures    ~/Pictures
 videos      ~/Videos

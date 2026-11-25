@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Makes this machine's Syncthing match ./folders: creates each folder with its ignore list,
-# keeps replaced or deleted files for 30 days, and shares every folder with every paired device.
+# keeps replaced or deleted files for 30 days, shares every folder with every paired device,
+# and stops syncing folders not listed (their files stay on disk).
 #
 # Pairing stays manual, because each machine has to approve the other (see the Makefile for
 # the steps); rerun `make syncthing` after pairing to share every folder with the new device.
@@ -15,14 +16,22 @@ for _ in $(seq 50); do api noauth/health >/dev/null 2>&1 && break; sleep 0.2; do
 # Every known device, this one included; folders are shared with all of them.
 devices=$(api config/devices | jq '[.[] | {deviceID}]')
 
-# Syncthing creates ~/Sync as a starter folder on first run; this setup doesn't use it.
-api config/folders/default -X DELETE >/dev/null 2>&1 || true
+folders=$(grep -v '^\s*\(#\|$\)' "$here/folders")
+
+# Removing a folder from Syncthing leaves its files alone. This also drops the ~/Sync starter
+# folder Syncthing creates on first run.
+for id in $(api config/folders | jq -r '.[].id'); do
+  if ! awk '{print $1}' <<<"$folders" | grep -qxF "$id"; then
+    api "config/folders/$id" -X DELETE >/dev/null
+    echo "syncthing: stopped syncing $id (not in folders)"
+  fi
+done
 rmdir ~/Sync 2>/dev/null || true
 
 # Decline anonymous usage reporting, so the web UI doesn't ask.
 api config/options -X PATCH -d '{"urAccepted": -1}' >/dev/null
 
-grep -v '^\s*\(#\|$\)' "$here/folders" | while read -r id path ignores; do
+while read -r id path ignores; do
   path=${path/#\~/$HOME}
   mkdir -p "$path"
   folder=$(jq -n --arg id "$id" --arg path "$path" --argjson devices "$devices" '{
@@ -37,4 +46,4 @@ grep -v '^\s*\(#\|$\)' "$here/folders" | while read -r id path ignores; do
       api "db/ignores?folder=$id" -X POST -d @- >/dev/null
   fi
   echo "syncthing: $id -> $path"
-done
+done <<<"$folders"

@@ -15,5 +15,5 @@ export EDITOR="ted"
 # User-installed tools (pipx, Antigravity CLI)
 export PATH="$HOME/.local/bin:$PATH"
 
-# Settings kept out of the public repo (from ~/dotfiles/private/home).
+# Settings kept out of the public repo (from ~/git/dotfiles/private/home).
 [ -f ~/.bashrc.local ] && . ~/.bashrc.local
