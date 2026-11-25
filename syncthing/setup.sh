@@ -33,14 +33,20 @@ api config/options -X PATCH -d '{"urAccepted": -1}' >/dev/null
 
 while read -r id path ignores; do
   path=${path/#\~/$HOME}
-  mkdir -p "$path"
   folder=$(jq -n --arg id "$id" --arg path "$path" --argjson devices "$devices" '{
-    id: $id, label: ($path | split("/") | last), path: $path, devices: $devices,
+    id: $id, label: ($path | split("/") | last), devices: $devices,
     versioning: {type: "trashcan", params: {cleanoutDays: "30"}}
   }')
-  # PATCH keeps the rest of an existing folder's settings; PUT creates a new one.
-  if api "config/folders/$id" >/dev/null 2>&1; then method=PATCH; else method=PUT; fi
-  api "config/folders/$id" -X "$method" -d "$folder" >/dev/null
+  # An existing folder is never moved: pointing Syncthing at another directory makes it read
+  # every file it synced as deleted. PATCH keeps the rest of its settings.
+  if current=$(api "config/folders/$id" 2>/dev/null | jq -r .path); then
+    [ "$current" = "$path" ] ||
+      echo "syncthing: $id syncs $current, not $path; left as is (move it by removing the folder and accepting it again)"
+    api "config/folders/$id" -X PATCH -d "$folder" >/dev/null
+  else
+    mkdir -p "$path"
+    api "config/folders/$id" -X PUT -d "$(jq --arg path "$path" '. + {path: $path}' <<<"$folder")" >/dev/null
+  fi
   if [ -n "${ignores:-}" ]; then
     (cd "$here" && cat ${ignores//,/ }) | jq -Rn '{ignore: [inputs]}' |
       api "db/ignores?folder=$id" -X POST -d @- >/dev/null
