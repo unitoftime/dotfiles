@@ -1,0 +1,10 @@
+// Rebuildable output, dependencies and caches. Everything else syncs, gitignored or not.
+// (?d) lets Syncthing delete these when a directory holding them is deleted elsewhere.
+(?d)target
+(?d)node_modules
+(?d).venv
+(?d)__pycache__
+(?d).zig-cache
+(?d)zig-cache
+(?d)zig-out
+(?d).cache

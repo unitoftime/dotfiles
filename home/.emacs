@@ -496,7 +496,12 @@ Version: 2017-08-03 2023-01-13"
 (defun my-gemini-cmd-bugs ()
   "Ask the agent to audit for memory leaks and edge cases."
   (interactive)
-  (my-gemini-vterm-execute "Analyze this code for bugs, memory leaks, or unhandled edge cases. Provide the corrected code."))
+  (my-gemini-vterm-execute "Analyze this code for bugs, unhandled edge cases, etc. Provide the corrected code."))
+
+(defun my-gemini-cmd-question ()
+  "Prompt for a specific, one-off question."
+  (interactive)
+  (my-gemini-vterm-execute (read-string "Analyze this code and answer this question: ")))
 
 (defun my-gemini-cmd-custom ()
   "Prompt for a specific, one-off instruction."
@@ -507,6 +512,7 @@ Version: 2017-08-03 2023-01-13"
 (transient-define-prefix my-gemini-menu ()
   "AI Agent Command Palette"
   ["Gemini Agent Commands"
+   ("q" "Answer Question" my-gemini-cmd-question)
    ("t" "Write Tests" my-gemini-cmd-tests)
    ("f" "Finish Function" my-gemini-cmd-finish)
    ("b" "Check for Bugs" my-gemini-cmd-bugs)
@@ -525,8 +531,8 @@ Version: 2017-08-03 2023-01-13"
    '(ace-jump-mode ag catppuccin-theme company exec-path-from-shell
                    go-mode gptel helm json-mode keychain-environment
                    lsp-mode magit nginx-mode projectile rust-mode
-                   toml-mode vterm web-mode yaml-mode zenburn-theme
-                   zig-mode)))
+                   toml-mode typescript-mode vterm web-mode yaml-mode
+                   zenburn-theme zig-mode)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -535,3 +541,6 @@ Version: 2017-08-03 2023-01-13"
  )
 
 
+(with-eval-after-load 'lsp-mode
+  ;; Replace "data" with the actual name of your massive folder
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]data\\'"))
